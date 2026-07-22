@@ -9,35 +9,64 @@
 <body>
     <div class="container">
         <div class="sidebar">
+            <button id="darkModeToggle" class="secondary-btn">🌙 Toggle Dark Mode</button>
             <h2>Settings</h2>
+            
             <div class="setting-group">
                 <label>Move Pattern:</label>
                 <select id="movePattern">
                     <option value="111">1-1-1-1...</option>
-                    <option value="122">1-2-2-2...</option>
+                    <option value="122-same">1-2-2-2... (Same Piece)</option>
+                    <option value="122-any">1-2-2-2... (Any Piece)</option>
                 </select>
             </div>
+            
+            <div class="setting-group">
+                <label>Splash Capture on Kill:</label>
+                <select id="splashCapture">
+                    <option value="none">None</option>
+                    <option value="all">All Adjacent (8)</option>
+                    <option value="ortho">Orthogonal Only (4)</option>
+                    <option value="diag">Diagonal Only (4)</option>
+                    <option value="cond-same">Conditional (Same as Attack)</option>
+                    <option value="cond-opp">Conditional (Opposite to Attack)</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="lockTerritory"> 
+                    Lock Claimed Squares (No Recapture)
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="captureTargetSquare" checked> 
+                    Claim Target Square on Kill
+                </label>
+            </div>
+
+            <div class="setting-group">
+                <label>
+                    <input type="checkbox" id="enforceAdjacency" checked> 
+                    Block Adjacent Same-Type Opponents
+                </label>
+            </div>
+
             <div class="setting-group">
                 <label>
                     <input type="checkbox" id="allowDoubleMove"> 
                     Allow Double Moves in Territory
                 </label>
             </div>
+
             <div class="setting-group">
-                <label>
-                    <input type="checkbox" id="allowRecapture"> 
-                    Capture Square on Enemy Capture
-                </label>
+                <label class="slider-label">Bot Difficulty: <span id="botDiffValue" class="bold-text">0 (PvP)</span></label>
+                <input type="range" id="botDifficulty" min="0" max="100" value="0">
+                <small class="hint-text">1-34: Easy | 35-84: Medium | 85-100: Hard</small>
             </div>
-            <div class="setting-group">
-                <label>Bot Difficulty (Red Player):</label>
-                <select id="botDifficulty">
-                    <option value="0">Off (PvP)</option>
-                    <option value="1">Easy</option>
-                    <option value="2">Medium</option>
-                    <option value="3">Hard</option>
-                </select>
-            </div>
+
             <button id="restartBtn">Restart Game</button>
             
             <div class="status-panel">
@@ -50,17 +79,6 @@
                 </div>
                 <p id="winnerMessage" class="hidden"></p>
             </div>
-            
-            <div class="rules">
-                <small>
-                    <strong>Rules:</strong><br>
-                    - Move like a Chess King (1 square any direction).<br>
-                    - Capture like RPS (Rock 🪨 > Scissors ✂️ > Paper 📄 > Rock 🪨).<br>
-                    - Moving to a blank square claims it.<br>
-                    - Opposing identical pieces cannot be adjacent.<br>
-                    - Setup based on <i>image_a639c6.png</i>.
-                </small>
-            </div>
         </div>
         
         <div class="game-area">
@@ -68,6 +86,7 @@
         </div>
     </div>
 
+    <script src="bot.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
