@@ -46,9 +46,9 @@ This game features a robust settings sidebar to tweak the game's mechanics to yo
 
 ---
 
-## 🚀 How to Run (Installation)
+## 🚀 How to Run
 
-Because this is built with pure Vanilla HTML, CSS, and JS, there is no build step or installation required! Just player it here:
+Because this is built with pure Vanilla HTML, CSS, and JS, there is no build step or installation required! Just play it here:
 https://joaovidal1.github.io/Board-Rock-Paper-Scissors/
 
 Alternatively you can clone the repository:
