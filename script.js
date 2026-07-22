@@ -12,10 +12,10 @@ let activePieceId = null;
 let lastMove = null; 
 let gameOver = false;
 
+// UI Elements
 const boardEl = document.getElementById('board');
 const movePatternEl = document.getElementById('movePattern');
 const splashCaptureEl = document.getElementById('splashCapture');
-const lockTerritoryEl = document.getElementById('lockTerritory');
 const captureTargetSquareEl = document.getElementById('captureTargetSquare');
 const enforceAdjacencyEl = document.getElementById('enforceAdjacency');
 const allowDoubleMoveEl = document.getElementById('allowDoubleMove');
@@ -46,6 +46,7 @@ function initGame() {
     document.getElementById('winnerMessage').classList.add('hidden');
     document.getElementById('turnIndicator').innerText = "Current Turn: Blue";
     
+    // Blue setup
     addPiece(3, 1, PLAYERS.BLUE, TYPES.ROCK);
     addPiece(3, 2, PLAYERS.BLUE, TYPES.ROCK);
     addPiece(4, 1, PLAYERS.BLUE, TYPES.PAPER);
@@ -53,6 +54,7 @@ function initGame() {
     addPiece(5, 1, PLAYERS.BLUE, TYPES.SCISSORS);
     addPiece(5, 2, PLAYERS.BLUE, TYPES.SCISSORS);
     
+    // Red setup
     addPiece(3, 6, PLAYERS.RED, TYPES.SCISSORS);
     addPiece(3, 7, PLAYERS.RED, TYPES.SCISSORS);
     addPiece(4, 6, PLAYERS.RED, TYPES.PAPER);
@@ -84,7 +86,7 @@ function isOppositionBlocked(r, c, player, type) {
     if (!enforceAdjacencyEl.checked) return false;
     for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dr === 0) continue;
+            if (dr === 0 && dc === 0) continue;
             let nr = r + dr, nc = c + dc;
             if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
                 let p = getPieceAt(nr, nc);
@@ -103,8 +105,9 @@ function getValidMoves(piece) {
         let valid = [];
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dr === 0) continue;
+                if (dr === 0 && dc === 0) continue;
                 let nr = startR + dr, nc = startC + dc;
+                
                 if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE) continue;
                 
                 let targetPiece = getPieceAt(nr, nc);
@@ -118,25 +121,14 @@ function getValidMoves(piece) {
     }
 
     let step1Moves = getKingMoves(piece.r, piece.c);
-    step1Moves.forEach(m => {
-        // Respect territory lock rule: cannot step onto already claimed enemy territory if locked
-        if (lockTerritoryEl.checked && board[m.r][m.c] !== null && board[m.r][m.c] !== piece.player && !getPieceAt(m.r, m.c)) {
-            return;
-        }
-        moves.add(`${m.r},${m.c}`);
-    });
+    step1Moves.forEach(m => moves.add(`${m.r},${m.c}`));
 
     if (allowDouble) {
         step1Moves.forEach(m1 => {
             if (board[m1.r][m1.c] === piece.player && !getPieceAt(m1.r, m1.c)) {
                 let step2Moves = getKingMoves(m1.r, m1.c);
                 step2Moves.forEach(m2 => {
-                    if (m2.r !== piece.r || m2.c !== piece.c) {
-                        if (lockTerritoryEl.checked && board[m2.r][m2.c] !== null && board[m2.r][m2.c] !== piece.player && !getPieceAt(m2.r, m2.c)) {
-                            return;
-                        }
-                        moves.add(`${m2.r},${m2.c}`);
-                    }
+                    if (m2.r !== piece.r || m2.c !== piece.c) moves.add(`${m2.r},${m2.c}`);
                 });
             }
         });
@@ -193,25 +185,19 @@ function executeMove(piece, r, c) {
 
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
-                    if (dr === 0 && dr === 0) continue;
+                    if (dr === 0 && dc === 0) continue;
                     let nr = r + dr, nc = c + dc;
                     if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
                         let isOrtho = (dr === 0 || dc === 0);
                         if ((isOrtho && doOrtho) || (!isOrtho && doDiag)) {
-                            if (!lockTerritoryEl.checked || board[nr][nc] === null) {
-                                board[nr][nc] = piece.player;
-                            }
+                            board[nr][nc] = piece.player;
                         }
                     }
                 }
             }
         }
 
-        if (captureTargetSquareEl.checked) {
-            if (!lockTerritoryEl.checked || board[r][c] === null) {
-                board[r][c] = piece.player;
-            }
-        }
+        if (captureTargetSquareEl.checked) board[r][c] = piece.player;
     } else if (board[r][c] === null) {
         board[r][c] = piece.player;
     }
@@ -221,6 +207,7 @@ function executeMove(piece, r, c) {
 
     if (checkEndGame()) return;
 
+    // Turn Management handling 1-2-2 bot loops correctly
     if (movesRemaining <= 0) {
         endTurn();
     } else {
@@ -237,6 +224,7 @@ function executeMove(piece, r, c) {
         render();
         updateStatus();
 
+        // Bot chained moves triggers here directly! (fixes 1-2-2 bug)
         let difficulty = parseInt(botDiffSlider.value);
         if (currentPlayer === PLAYERS.RED && difficulty > 0 && !gameOver) {
             setTimeout(playBotTurn, 400); 
@@ -271,6 +259,7 @@ async function playBotTurn() {
     let difficulty = parseInt(botDiffSlider.value);
     if (difficulty === 0) return;
 
+    // Optional: Visual indicator that the bot is "thinking" on hard modes
     if (difficulty > 70) {
         document.getElementById('turnIndicator').innerText = "Bot is thinking...";
         await new Promise(resolve => setTimeout(resolve, 50)); 
@@ -279,7 +268,6 @@ async function playBotTurn() {
     let rules = {
         movePattern: movePatternEl.value,
         splashCapture: splashCaptureEl.value,
-        lockTerritory: lockTerritoryEl.checked,
         captureTargetSquare: captureTargetSquareEl.checked,
         enforceAdjacency: enforceAdjacencyEl.checked,
         allowDoubleMove: allowDoubleMoveEl.checked
@@ -315,17 +303,9 @@ function checkEndGame() {
     let blueAlive = pieces.some(p => p.player === PLAYERS.BLUE && p.alive);
     let redAlive = pieces.some(p => p.player === PLAYERS.RED && p.alive);
 
-    let lockActive = lockTerritoryEl.checked;
-    let instantWinTriggered = lockActive && (blueSquares >= 41 || redSquares >= 41);
-
-    if (emptySquares === 0 || !blueAlive || !redAlive || instantWinTriggered) {
+    if (emptySquares === 0 || !blueAlive || !redAlive) {
         gameOver = true;
-        let msg = "";
-        if (blueSquares >= 41) msg = "Blue Wins (41+ Squares)!";
-        else if (redSquares >= 41) msg = "Red Wins (41+ Squares)!";
-        else if (blueSquares > redSquares) msg = "Blue Wins!";
-        else if (redSquares > blueSquares) msg = "Red Wins!";
-        else msg = "It's a Tie!";
+        let msg = (blueSquares > redSquares) ? "Blue Wins!" : (redSquares > blueSquares) ? "Red Wins!" : "It's a Tie!";
         
         let winnerEl = document.getElementById('winnerMessage');
         winnerEl.innerText = `Game Over! ${msg}`;
