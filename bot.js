@@ -1,3 +1,7 @@
+/**
+ * Advanced AI Engine for RPS Territory Chess
+ * Uses Minimax with Alpha-Beta Pruning to look ahead multiple turns.
+ */
 const BotAI = (function() {
     const TYPES = { ROCK: '🪨', PAPER: '📄', SCISSORS: '✂️' };
 
@@ -48,6 +52,7 @@ const BotAI = (function() {
 
     function getValidMovesForPiece(state, rules, piece) {
         let movesMap = new Map();
+        
         let step1Moves = getKingMoves(state, rules, piece, piece.r, piece.c);
         step1Moves.forEach(m => movesMap.set(`${m.r},${m.c}`, m));
 
@@ -63,6 +68,7 @@ const BotAI = (function() {
                 }
             });
         }
+
         return Array.from(movesMap.values()).map(m => ({ pieceId: piece.id, toR: m.r, toC: m.c, isCapture: m.isCapture }));
     }
 
@@ -71,8 +77,13 @@ const BotAI = (function() {
         if (rules.movePattern === '122-same' && state.movesRemaining === 1 && state.activePieceId) {
             myPieces = myPieces.filter(p => p.id === state.activePieceId);
         }
+
         let allMoves = [];
-        myPieces.forEach(p => { allMoves.push(...getValidMovesForPiece(state, rules, p)); });
+        myPieces.forEach(p => {
+            allMoves.push(...getValidMovesForPiece(state, rules, p));
+        });
+
+        // Alpha-Beta optimization: Evaluate captures first to prune faster
         allMoves.sort((a, b) => (b.isCapture ? 1 : 0) - (a.isCapture ? 1 : 0));
         return allMoves;
     }
@@ -93,6 +104,7 @@ const BotAI = (function() {
         let next = cloneState(state);
         let piece = next.pieces.find(p => p.id === move.pieceId);
         let target = getPieceAt(next, move.toR, move.toC);
+        
         let fromR = piece.r, fromC = piece.c;
         let r = move.toR, c = move.toC;
 
@@ -107,7 +119,7 @@ const BotAI = (function() {
 
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dr === 0) continue;
+                        if (dr === 0 && dc === 0) continue;
                         let nr = r + dr, nc = c + dc;
                         if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
                             let currIsOrtho = (dr === 0 || dc === 0);
@@ -127,24 +139,18 @@ const BotAI = (function() {
         next.activePieceId = piece.id;
         next.movesRemaining--;
 
-        // Check 41-square condition in simulation
-        let blueSquares = 0, redSquares = 0, empty = 0;
-        for(let ir=0; ir<9; ir++) {
-            for(let ic=0; ic<9; ic++) {
-                if(next.board[ir][ic] === 'blue') blueSquares++;
-                else if(next.board[ir][ic] === 'red') redSquares++;
-                else empty++;
-            }
-        }
+        // Check Endgame
+        let empty = 0;
+        for(let ir=0; ir<9; ir++) for(let ic=0; ic<9; ic++) if(next.board[ir][ic] === null) empty++;
+        let blueAlive = next.pieces.some(p => p.player === 'blue' && p.alive);
+        let redAlive = next.pieces.some(p => p.player === 'red' && p.alive);
         
-        let bAlive = next.pieces.some(p => p.player === 'blue' && p.alive);
-        let rAlive = next.pieces.some(p => p.player === 'red' && p.alive);
-
-        if (empty === 0 || !bAlive || !rAlive || (!rules.allowRecapture && (blueSquares >= 41 || redSquares >= 41))) {
+        if (empty === 0 || !blueAlive || !redAlive) {
             next.gameOver = true;
             return next;
         }
 
+        // Turn Management
         if (next.movesRemaining <= 0) {
             next.currentPlayer = next.currentPlayer === 'blue' ? 'red' : 'blue';
             next.totalTurns++;
@@ -162,45 +168,74 @@ const BotAI = (function() {
         return next;
     }
 
-    function evaluateBoard(state, rules) {
-        let blue = 0, red = 0;
-        state.board.forEach(row => row.forEach(cell => {
-            if (cell === 'blue') blue++;
-            else if (cell === 'red') red++;
-        }));
-
+    function evaluateBoard(state) {
         if (state.gameOver) {
+            let blue = 0, red = 0;
+            state.board.forEach(row => row.forEach(cell => {
+                if (cell === 'blue') blue++;
+                if (cell === 'red') red++;
+            }));
             let bAlive = state.pieces.some(p => p.player === 'blue' && p.alive);
             let rAlive = state.pieces.some(p => p.player === 'red' && p.alive);
             if (!bAlive) return 100000;
             if (!rAlive) return -100000;
             if (red > blue) return 100000;
             if (blue > red) return -100000;
-            return 0;
+            return 0; // tie
         }
 
-        let score = (red - blue) * 15;
-        let redPieces = state.pieces.filter(p => p.player === 'red' && p.alive).length;
-        let bluePieces = state.pieces.filter(p => p.player === 'blue' && p.alive).length;
+        let score = 0;
+        let redTerritory = 0, blueTerritory = 0;
+        
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (state.board[r][c] === 'red') redTerritory++;
+                else if (state.board[r][c] === 'blue') blueTerritory++;
+            }
+        }
+        score += (redTerritory - blueTerritory) * 10;
+
+        let redPieces = 0, bluePieces = 0;
+        state.pieces.forEach(p => {
+            if (p.alive) {
+                if (p.player === 'red') redPieces++;
+                else bluePieces++;
+            }
+        });
         score += (redPieces - bluePieces) * 150;
+
+        // Quick Threat Assessment
+        let redP = state.pieces.filter(p => p.alive && p.player === 'red');
+        let blueP = state.pieces.filter(p => p.alive && p.player === 'blue');
+        
+        redP.forEach(rp => {
+            blueP.forEach(bp => {
+                if (Math.abs(rp.r - bp.r) <= 1 && Math.abs(rp.c - bp.c) <= 1) {
+                    if (canCapture(bp.type, rp.type)) score -= 50; // Red in danger
+                    if (canCapture(rp.type, bp.type)) score += 40; // Blue in danger
+                }
+            });
+        });
 
         return score;
     }
 
     function minimax(state, rules, depth, alpha, beta, isMaximizing, noiseLvl) {
         if (depth === 0 || state.gameOver) {
-            let evalScore = evaluateBoard(state, rules);
+            let evalScore = evaluateBoard(state);
             let noise = (Math.random() * noiseLvl * 2) - noiseLvl;
             return { score: evalScore + noise };
         }
 
         let moves = getAllMoves(state, rules, state.currentPlayer);
+        
         if (moves.length === 0) {
             let passState = cloneState(state);
             passState.currentPlayer = passState.currentPlayer === 'blue' ? 'red' : 'blue';
             passState.totalTurns++;
             passState.activePieceId = null;
             passState.movesRemaining = (rules.movePattern.startsWith('122') && passState.totalTurns > 0) ? 2 : 1;
+            
             let res = minimax(passState, rules, depth - 1, alpha, beta, passState.currentPlayer === 'red', noiseLvl);
             return { score: res.score };
         }
@@ -210,6 +245,7 @@ const BotAI = (function() {
             let maxEval = -Infinity;
             for (let move of moves) {
                 let next = simulateMove(state, rules, move);
+                // Depth always decreases by 1 per PLY to prevent infinite multi-move loops
                 let res = minimax(next, rules, depth - 1, alpha, beta, next.currentPlayer === 'red', noiseLvl);
                 if (res.score > maxEval) {
                     maxEval = res.score;
@@ -237,8 +273,11 @@ const BotAI = (function() {
 
     return {
         getBestMove: function(state, rules, difficulty) {
+            // Difficulty parsing
             let depth = difficulty < 35 ? 1 : (difficulty < 85 ? 2 : 3);
-            let noiseLevel = ((100 - difficulty) / 100) * 60;
+            let maxNoise = 60; 
+            let noiseLevel = ((100 - difficulty) / 100) * maxNoise;
+
             let result = minimax(state, rules, depth, -Infinity, Infinity, state.currentPlayer === 'red', noiseLevel);
             return result.move;
         }
